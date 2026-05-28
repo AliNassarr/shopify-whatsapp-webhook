@@ -53,7 +53,7 @@ app.post('/api/webhook', async (req, res) => {
         let itemsList = "";
         if (order.line_items && order.line_items.length > 0) {
             order.line_items.forEach(item => {
-                itemsList += `• ${item.quantity}x ${item.name}\n`;
+                itemsList += `• ${item.quantity}x ${item.name}\n\n`;
             });
         } else {
             itemsList = "• No items found in order.";
