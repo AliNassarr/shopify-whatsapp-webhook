@@ -37,6 +37,18 @@ app.post('/api/webhook', async (req, res) => {
         const orderNumber = order.order_number || order.name;
         const customerName = order.customer ? `${order.customer.first_name} ${order.customer.last_name}` : "Guest Customer";
         
+        // Extract Phone Number
+        const phone = order.phone || (order.customer && order.customer.phone) || (order.shipping_address && order.shipping_address.phone) || "No phone provided";
+
+        // Extract Shipping Address
+        let shippingAddress = "No shipping address provided";
+        if (order.shipping_address) {
+            const addr = order.shipping_address;
+            const line1 = [addr.address1, addr.address2].filter(Boolean).join(", ");
+            const line2 = [addr.city, addr.province, addr.zip].filter(Boolean).join(", ");
+            shippingAddress = `${line1}\n${line2}\n${addr.country || ''}`.trim();
+        }
+
         // Loop through the line items to format the order list
         let itemsList = "";
         if (order.line_items && order.line_items.length > 0) {
@@ -48,7 +60,7 @@ app.post('/api/webhook', async (req, res) => {
         }
 
         // 4. Format the WhatsApp Message
-        const messageText = `🚨 *New Order #${orderNumber}*\n\n*Customer:* ${customerName}\n*Items to Prepare:*\n${itemsList}\n*Total:* ${order.total_price} ${order.currency}`;
+        const messageText = `🚨 *New Order #${orderNumber}*\n\n*Customer:* ${customerName}\n*Phone:* ${phone}\n\n*Shipping Address:*\n${shippingAddress}\n\n*Items to Prepare:*\n${itemsList}\n*Total:* ${order.total_price} ${order.currency}`;
 
         // 5. Send the message via WhatsApp Cloud API
         const WHATSAPP_API_TOKEN = process.env.WHATSAPP_API_TOKEN;
