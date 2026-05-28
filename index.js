@@ -1,37 +1,17 @@
+const express = require('express');
 const crypto = require('crypto');
 
-// Helper to read the raw body of the request
-async function getRawBody(req) {
-    return new Promise((resolve, reject) => {
-        let body = [];
-        req.on('data', (chunk) => {
-            body.push(chunk);
-        });
-        req.on('end', () => {
-            resolve(Buffer.concat(body));
-        });
-        req.on('error', (err) => reject(err));
-    });
-}
+const app = express();
+const PORT = process.env.PORT || 3000;
 
-// Vercel requires disabling the default body parser to get the raw body stream
-module.exports.config = {
-    api: {
-        bodyParser: false,
-    },
-};
+// Middleware to capture raw body for HMAC verification
+app.use(express.raw({ type: 'application/json' }));
 
-module.exports = async (req, res) => {
-    // 1. Only allow POST requests (Shopify Webhooks are POST)
-    if (req.method !== 'POST') {
-        return res.status(405).send('Method Not Allowed');
-    }
-
+app.post('/api/webhook', async (req, res) => {
     try {
-        // 2. Read the raw request body
-        const rawBody = await getRawBody(req);
+        const rawBody = req.body; // express.raw makes this a Buffer
         
-        // 3. Verify the Shopify HMAC signature (Security check)
+        // 1. Verify the Shopify HMAC signature (Security check)
         const hmacHeader = req.headers['x-shopify-hmac-sha256'];
         const secret = process.env.SHOPIFY_WEBHOOK_SECRET;
 
@@ -50,10 +30,10 @@ module.exports = async (req, res) => {
             return res.status(401).send("Unauthorized Webhook Request");
         }
 
-        // 4. Parse the order data now that it's verified
+        // 2. Parse the order data now that it's verified
         const order = JSON.parse(rawBody.toString('utf8'));
         
-        // 5. Extract necessary order details
+        // 3. Extract necessary order details
         const orderNumber = order.order_number || order.name;
         const customerName = order.customer ? `${order.customer.first_name} ${order.customer.last_name}` : "Guest Customer";
         
@@ -67,10 +47,10 @@ module.exports = async (req, res) => {
             itemsList = "• No items found in order.";
         }
 
-        // 6. Format the WhatsApp Message
+        // 4. Format the WhatsApp Message
         const messageText = `🚨 *New Order #${orderNumber}*\n\n*Customer:* ${customerName}\n*Items to Prepare:*\n${itemsList}\n*Total:* ${order.total_price} ${order.currency}`;
 
-        // 7. Send the message via WhatsApp Cloud API
+        // 5. Send the message via WhatsApp Cloud API
         const WHATSAPP_API_TOKEN = process.env.WHATSAPP_API_TOKEN;
         const WHATSAPP_PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_NUMBER_ID;
         const EMPLOYEE_PHONE_NUMBER = process.env.EMPLOYEE_PHONE_NUMBER;
@@ -112,4 +92,13 @@ module.exports = async (req, res) => {
         console.error("Error processing webhook:", error);
         return res.status(500).send("Internal Server Error");
     }
-};
+});
+
+// A simple health check route
+app.get('/', (req, res) => {
+    res.send("Shopify to WhatsApp Webhook is running!");
+});
+
+app.listen(PORT, () => {
+    console.log(`Server is listening on port ${PORT}`);
+});
