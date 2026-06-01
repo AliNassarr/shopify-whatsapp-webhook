@@ -59,10 +59,7 @@ app.post('/api/webhook', async (req, res) => {
             itemsList = "• No items found in order.";
         }
 
-        // 4. Format the WhatsApp Message
-        const messageText = `🚨 *New Order #${orderNumber}*\n\n*Customer:* ${customerName}\n*Phone:* ${phone}\n\n*Shipping Address:*\n${shippingAddress}\n\n*Items to Prepare:*\n${itemsList}\n*Total:* ${order.total_price} ${order.currency}`;
-
-        // 5. Send the message via WhatsApp Cloud API
+        // 4. Send the message via WhatsApp Cloud API using the official Template
         const WHATSAPP_API_TOKEN = process.env.WHATSAPP_API_TOKEN;
         const WHATSAPP_PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_NUMBER_ID;
         const EMPLOYEE_PHONE_NUMBER = process.env.EMPLOYEE_PHONE_NUMBER;
@@ -77,8 +74,24 @@ app.post('/api/webhook', async (req, res) => {
         const whatsappPayload = {
             messaging_product: "whatsapp",
             to: EMPLOYEE_PHONE_NUMBER,
-            type: "text",
-            text: { body: messageText }
+            type: "template",
+            template: {
+                name: "new_order_alert",
+                language: { code: "en_US" },
+                components: [
+                    {
+                        type: "body",
+                        parameters: [
+                            { type: "text", text: String(orderNumber) },
+                            { type: "text", text: String(customerName) },
+                            { type: "text", text: String(phone) },
+                            { type: "text", text: String(shippingAddress) },
+                            { type: "text", text: String(itemsList) },
+                            { type: "text", text: `${order.total_price} ${order.currency}` }
+                        ]
+                    }
+                ]
+            }
         };
 
         const response = await fetch(whatsappApiUrl, {
