@@ -46,17 +46,16 @@ app.post('/api/webhook', async (req, res) => {
             const addr = order.shipping_address;
             const line1 = [addr.address1, addr.address2].filter(Boolean).join(", ");
             const line2 = [addr.city, addr.province, addr.zip].filter(Boolean).join(", ");
-            shippingAddress = `${line1}\n${line2}\n${addr.country || ''}`.trim();
+            shippingAddress = `${line1}, ${line2}, ${addr.country || ''}`.replace(/,\s*,/g, ',').trim();
         }
 
         // Loop through the line items to format the order list
         let itemsList = "";
         if (order.line_items && order.line_items.length > 0) {
-            order.line_items.forEach(item => {
-                itemsList += `• ${item.quantity}x ${item.name}\n\n`;
-            });
+            const items = order.line_items.map(item => `${item.quantity}x ${item.name}`);
+            itemsList = items.join(", ");
         } else {
-            itemsList = "• No items found in order.";
+            itemsList = "No items found in order.";
         }
 
         // 4. Send the message via WhatsApp Cloud API using the official Template
