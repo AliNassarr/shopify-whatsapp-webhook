@@ -93,28 +93,34 @@ app.post('/api/webhook', async (req, res) => {
             }
         };
 
-        const response = await fetch(whatsappApiUrl, {
+        // Immediately acknowledge the webhook to prevent Shopify from thinking it failed and retrying
+        res.status(200).send("OK");
+
+        // 5. Send the message via WhatsApp Cloud API asynchronously
+        fetch(whatsappApiUrl, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${WHATSAPP_API_TOKEN}`,
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify(whatsappPayload)
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-            console.error("Error from WhatsApp API:", data);
-            return res.status(500).send("Failed to send WhatsApp message");
-        }
-
-        console.log(`WhatsApp message sent successfully for Order #${orderNumber}`);
-        return res.status(200).send("OK");
+        })
+        .then(response => response.json().then(data => ({ ok: response.ok, data })))
+        .then(({ ok, data }) => {
+            if (!ok) {
+                console.error("Error from WhatsApp API:", data);
+            } else {
+                console.log(`WhatsApp message sent successfully for Order #${orderNumber}`);
+            }
+        })
+        .catch(err => console.error("Error sending message:", err));
 
     } catch (error) {
         console.error("Error processing webhook:", error);
-        return res.status(500).send("Internal Server Error");
+        // If we haven't responded yet, send a 500
+        if (!res.headersSent) {
+            return res.status(500).send("Internal Server Error");
+        }
     }
 });
 
