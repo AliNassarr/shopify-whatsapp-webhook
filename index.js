@@ -68,9 +68,9 @@ app.post('/api/webhook', async (req, res) => {
         // Loop through the line items to format the order list
         let itemsList = "";
         if (order.line_items && order.line_items.length > 0) {
-            const items = order.line_items.map(item => `${item.quantity}x ${item.name}`);
-            // Meta bans newlines (\n), so we use a bullet point with spacing to separate items cleanly
-            itemsList = items.join("   •   ");
+            const items = order.line_items.map(item => `📦 [${item.quantity}x ${item.name}]`);
+            // Meta bans newlines (\n), so we use a bright divider to separate items clearly
+            itemsList = items.join("   🔸   ");
         } else {
             itemsList = "No items found in order.";
         }
