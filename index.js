@@ -4,6 +4,9 @@ const crypto = require('crypto');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Simple memory cache to prevent duplicate Shopify webhooks
+const processedOrders = new Set();
+
 // Middleware to capture raw body for HMAC verification
 app.use(express.raw({ type: 'application/json' }));
 
@@ -35,6 +38,19 @@ app.post('/api/webhook', async (req, res) => {
         
         // 3. Extract necessary order details
         const orderNumber = order.order_number || order.name;
+
+        // Prevent Duplicate Sends (Shopify sometimes sends the exact same webhook twice in one second)
+        if (processedOrders.has(orderNumber)) {
+            console.log(`Order #${orderNumber} already processed. Skipping duplicate.`);
+            return res.status(200).send("OK");
+        }
+        processedOrders.add(orderNumber);
+        
+        // Keep the memory cache from growing too large
+        if (processedOrders.size > 1000) {
+            processedOrders.clear();
+        }
+
         const customerName = order.customer ? `${order.customer.first_name} ${order.customer.last_name}` : "Guest Customer";
         
         // Extract Phone Number
@@ -53,7 +69,8 @@ app.post('/api/webhook', async (req, res) => {
         let itemsList = "";
         if (order.line_items && order.line_items.length > 0) {
             const items = order.line_items.map(item => `${item.quantity}x ${item.name}`);
-            itemsList = items.join(", ");
+            // Meta bans newlines (\n), so we use a bullet point with spacing to separate items cleanly
+            itemsList = items.join("   •   ");
         } else {
             itemsList = "No items found in order.";
         }
