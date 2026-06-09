@@ -65,14 +65,27 @@ app.post('/api/webhook', async (req, res) => {
             shippingAddress = `${line1}, ${line2}, ${addr.country || ''}`.replace(/,\s*,/g, ',').trim();
         }
 
-        // Loop through the line items to format the order list
-        let itemsList = "";
-        if (order.line_items && order.line_items.length > 0) {
-            const items = order.line_items.map(item => `📦 [${item.quantity}x ${item.name}]`);
-            // Meta bans newlines (\n), so we use a bright divider to separate items clearly
-            itemsList = items.join("   🔸   ");
-        } else {
-            itemsList = "No items found in order.";
+        // Loop through the line items to format the order list (up to 10 slots)
+        const lineItems = order.line_items || [];
+        const itemParams = [];
+        for (let i = 0; i < 10; i++) {
+            if (i < 9) {
+                if (i < lineItems.length) {
+                    const item = lineItems[i];
+                    itemParams.push({ type: "text", text: `x${item.quantity} ${item.name}` });
+                } else {
+                    itemParams.push({ type: "text", text: " " });
+                }
+            } else {
+                // The 10th slot: group all remaining items if there are any
+                if (i < lineItems.length) {
+                    const remainingItems = lineItems.slice(i).map(item => `x${item.quantity} ${item.name}`).join(", ");
+                    const truncated = remainingItems.length > 1000 ? remainingItems.substring(0, 997) + "..." : remainingItems;
+                    itemParams.push({ type: "text", text: truncated });
+                } else {
+                    itemParams.push({ type: "text", text: " " });
+                }
+            }
         }
 
         // 4. Send the message via WhatsApp Cloud API using the official Template
@@ -102,7 +115,7 @@ app.post('/api/webhook', async (req, res) => {
                             { type: "text", text: String(customerName) },
                             { type: "text", text: String(phone) },
                             { type: "text", text: String(shippingAddress) },
-                            { type: "text", text: String(itemsList) },
+                            ...itemParams,
                             { type: "text", text: `${order.total_price} ${order.currency}` }
                         ]
                     }
