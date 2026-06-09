@@ -72,14 +72,14 @@ app.post('/api/webhook', async (req, res) => {
             if (i < 9) {
                 if (i < lineItems.length) {
                     const item = lineItems[i];
-                    itemParams.push({ type: "text", text: `x${item.quantity} ${item.name}` });
+                    itemParams.push({ type: "text", text: `• x${item.quantity} ${item.name}` });
                 } else {
                     itemParams.push({ type: "text", text: " " });
                 }
             } else {
                 // The 10th slot: group all remaining items if there are any
                 if (i < lineItems.length) {
-                    const remainingItems = lineItems.slice(i).map(item => `x${item.quantity} ${item.name}`).join(", ");
+                    const remainingItems = lineItems.slice(i).map(item => `• x${item.quantity} ${item.name}`).join(", ");
                     const truncated = remainingItems.length > 1000 ? remainingItems.substring(0, 997) + "..." : remainingItems;
                     itemParams.push({ type: "text", text: truncated });
                 } else {
