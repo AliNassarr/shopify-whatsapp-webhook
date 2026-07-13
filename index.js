@@ -100,50 +100,55 @@ app.post('/api/webhook', async (req, res) => {
 
         const whatsappApiUrl = `https://graph.facebook.com/v19.0/${WHATSAPP_PHONE_NUMBER_ID}/messages`;
 
-        const whatsappPayload = {
-            messaging_product: "whatsapp",
-            to: EMPLOYEE_PHONE_NUMBER,
-            type: "template",
-            template: {
-                name: "new_order_alert",
-                language: { code: "en_US" },
-                components: [
-                    {
-                        type: "body",
-                        parameters: [
-                            { type: "text", text: String(orderNumber) },
-                            { type: "text", text: String(customerName) },
-                            { type: "text", text: String(phone) },
-                            { type: "text", text: String(shippingAddress) },
-                            ...itemParams,
-                            { type: "text", text: `${order.total_price} ${order.currency}` }
-                        ]
-                    }
-                ]
-            }
-        };
+        // Split the EMPLOYEE_PHONE_NUMBER by comma to handle multiple recipients
+        const phoneNumbers = EMPLOYEE_PHONE_NUMBER.split(',').map(num => num.trim()).filter(Boolean);
 
         // Immediately acknowledge the webhook to prevent Shopify from thinking it failed and retrying
         res.status(200).send("OK");
 
-        // 5. Send the message via WhatsApp Cloud API asynchronously
-        fetch(whatsappApiUrl, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${WHATSAPP_API_TOKEN}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(whatsappPayload)
-        })
-        .then(response => response.json().then(data => ({ ok: response.ok, data })))
-        .then(({ ok, data }) => {
-            if (!ok) {
-                console.error("Error from WhatsApp API:", data);
-            } else {
-                console.log(`WhatsApp message sent successfully for Order #${orderNumber}`);
-            }
-        })
-        .catch(err => console.error("Error sending message:", err));
+        // 5. Send the message via WhatsApp Cloud API asynchronously to all numbers
+        phoneNumbers.forEach(recipientNumber => {
+            const whatsappPayload = {
+                messaging_product: "whatsapp",
+                to: recipientNumber,
+                type: "template",
+                template: {
+                    name: "new_order_alert",
+                    language: { code: "en_US" },
+                    components: [
+                        {
+                            type: "body",
+                            parameters: [
+                                { type: "text", text: String(orderNumber) },
+                                { type: "text", text: String(customerName) },
+                                { type: "text", text: String(phone) },
+                                { type: "text", text: String(shippingAddress) },
+                                ...itemParams,
+                                { type: "text", text: `${order.total_price} ${order.currency}` }
+                            ]
+                        }
+                    ]
+                }
+            };
+
+            fetch(whatsappApiUrl, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${WHATSAPP_API_TOKEN}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(whatsappPayload)
+            })
+            .then(response => response.json().then(data => ({ ok: response.ok, data })))
+            .then(({ ok, data }) => {
+                if (!ok) {
+                    console.error(`Error from WhatsApp API for ${recipientNumber}:`, data);
+                } else {
+                    console.log(`WhatsApp message sent successfully to ${recipientNumber} for Order #${orderNumber}`);
+                }
+            })
+            .catch(err => console.error(`Error sending message to ${recipientNumber}:`, err));
+        });
 
     } catch (error) {
         console.error("Error processing webhook:", error);
